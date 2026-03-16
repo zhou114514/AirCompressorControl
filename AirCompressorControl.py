@@ -44,6 +44,13 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
+def get_server_host(config):
+    """从配置获取服务端监听IP：有配置值则用配置，否则用本机IP，默认127.0.0.1"""
+    value = config.value("server_ip")
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return get_local_ip()
+    return value if isinstance(value, str) else str(value).strip() or "127.0.0.1"
+
 class AirCompressorControl(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(AirCompressorControl, self).__init__(parent)
@@ -53,7 +60,7 @@ class AirCompressorControl(QMainWindow, Ui_MainWindow):
         self.writeZone = None
         self.stopFlag = False
         self.config = QSettings('config.ini', QSettings.IniFormat)
-        self.server = TCPServer(host=get_local_ip(), callback=self.callback)
+        self.server = TCPServer(host=get_server_host(self.config), callback=self.callback)
         self.server.start()
         self.initUI()  # 初始化界面
         self.init_btn()  # 初始化按钮
@@ -104,6 +111,8 @@ class AirCompressorControl(QMainWindow, Ui_MainWindow):
             self.config.setValue("rack", 0)
         if self.config.value("slot", None) == None:
             self.config.setValue("slot", 1)
+        if self.config.value("server_ip", None) is None:
+            self.config.setValue("server_ip", "127.0.0.1")
         self.IPaddress.setPlaceholderText(self.config.value("ip"))
         self.setRack.setPlaceholderText(str(self.config.value("rack")))
         self.setSlot.setPlaceholderText(str(self.config.value("slot")))
