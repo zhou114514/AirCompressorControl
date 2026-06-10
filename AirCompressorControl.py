@@ -155,18 +155,14 @@ class AirCompressorControl(QMainWindow, Ui_MainWindow):
 
     def callback(self, message: dict):
         if message['opcode'] == 'get_temp':
-            value = []
             tempList = ["热沉当前设定温度", "热沉控温点温度", "冷板当前设定温度", "冷板控温点温度"]
             state = self.S7_1200.get_state()
-            for name in tempList:
-                value.append(state[name])
+            value = {name: state[name] for name in tempList}
             self.server.returnpacket_callback([True, value, 'success'])
         elif message['opcode'] == 'get_state':
-            value = []
             stateList = ["一体机上电标志", "温控状态"]
             state = self.S7_1200.get_state()
-            for name in stateList:
-                value.append(state[name])
+            value = {name: state[name] for name in stateList}
             self.server.returnpacket_callback([True, value, 'success'])
         else:
             self.server.returnpacket_callback([False, None, 'No command'])
