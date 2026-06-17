@@ -31,6 +31,8 @@ class TCPServer(QThread):
         self.port = int(port)
         self.client_socket = None
         self.callback = callback
+        self._running = False
+        self._server_socket = None
 
     def handle_client_connection(self, client_socket):
         """处理客户端连接"""
@@ -81,24 +83,34 @@ class TCPServer(QThread):
                 print(f"端口{self.port}已被占用，请更换端口")
                 return
 
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-            server_socket.bind(('', self.port))
-            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            server_socket.listen(5)
-            print(f"服务器正在{self.host}:{self.port}上监听...")
+        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._server_socket.bind(('', self.port))
+        self._server_socket.listen(5)
+        self._server_socket.settimeout(1.0)
+        self._running = True
+        print(f"服务器正在{self.host}:{self.port}上监听...")
 
-            while True:
+        try:
+            while self._running:
                 try:
-                    client_socket, addr = server_socket.accept()
-                    # self.clients[addr[0]] = client_socket
+                    client_socket, addr = self._server_socket.accept()
                     print(f"接受到来自{addr}的连接")
-                    # 为每个客户端连接创建一个单独的线程来处理
-                    client_thread = threading.Thread(target=self.handle_client_connection, args=(client_socket,))
-                    # self.client_threads[addr] = client_thread
+                    client_thread = threading.Thread(
+                        target=self.handle_client_connection,
+                        args=(client_socket,),
+                        daemon=True,
+                    )
                     client_thread.start()
-                    # print(self.client_threads)
+                except socket.timeout:
+                    continue
                 except Exception as e:
-                    print(f"连接异常: {e}")
+                    if self._running:
+                        print(f"连接异常: {e}")
+        finally:
+            self._server_socket.close()
+            self._server_socket = None
+            print("TCP服务器已关闭")
 
     def send(self, client_socket, data):
         """向客户端发送数据"""
@@ -110,8 +122,12 @@ class TCPServer(QThread):
 
     def close_tcp_server(self):
         """关闭TCP服务器"""
-        # 这里需要实现一个优雅的关闭机制，考虑到多线程情况
-        pass
+        self._running = False
+        if self._server_socket is not None:
+            try:
+                self._server_socket.close()
+            except Exception:
+                pass
         
     def returnpacket_callback(self, data):
         """返回包回调"""

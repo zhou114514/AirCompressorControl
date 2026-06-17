@@ -159,7 +159,7 @@ class AirCompressorControl(QMainWindow, Ui_MainWindow):
 
     def startCallback(self):
         self.stopFlag = False
-        thread = threading.Thread(target=self.readThread)
+        thread = threading.Thread(target=self.readThread, daemon=True)
         thread.start()
         self.stop.setEnabled(True)
         self.start.setEnabled(False)
@@ -168,6 +168,14 @@ class AirCompressorControl(QMainWindow, Ui_MainWindow):
         self.stopFlag = True
         self.start.setEnabled(True)
         self.stop.setEnabled(False)
+
+    def closeEvent(self, event):
+        """关闭窗口时停止所有后台线程"""
+        self.stopFlag = True
+        self.server.close_tcp_server()
+        self.server.wait(3000)  # 最多等待3秒让QThread退出
+        self.S7_1200.disconnect_device()
+        event.accept()
 
     def callback(self, message: dict):
         if message['opcode'] == 'get_temp':
