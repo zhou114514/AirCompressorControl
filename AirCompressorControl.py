@@ -1,28 +1,37 @@
 import sys
 import os
+import shutil
 import threading
 import time
 import socket
 
 # 添加snap7.dll路径处理
 def setup_snap7():
-    """设置snap7.dll路径"""
-    # 获取当前执行文件的目录
+    """设置snap7.dll路径，若本地缺失则从Confiles目录自动复制"""
     if getattr(sys, 'frozen', False):
-        # 如果是打包后的exe文件
         application_path = os.path.dirname(sys.executable)
     else:
-        # 如果是python脚本
         application_path = os.path.dirname(os.path.abspath(__file__))
-    
-    # 将snap7.dll添加到系统路径
+
     snap7_dll_path = os.path.join(application_path, 'snap7.dll')
+
+    if not os.path.exists(snap7_dll_path):
+        # 在 Confiles 子目录中查找打包的 dll
+        bundled_dll = os.path.join(application_path, 'Confiles', 'snap7.dll')
+        if os.path.exists(bundled_dll):
+            try:
+                shutil.copy2(bundled_dll, snap7_dll_path)
+                print("snap7.dll 已从 Confiles 复制到程序目录")
+            except Exception as e:
+                print(f"警告：复制 snap7.dll 失败：{e}")
+        else:
+            print("警告：未找到 snap7.dll 文件（程序目录及 Confiles 均未找到）")
+
     if os.path.exists(snap7_dll_path):
-        # 如果在应用程序目录找到snap7.dll，则将其路径添加到系统路径
         os.environ['PATH'] = application_path + os.pathsep + os.environ.get('PATH', '')
         print("协议加载成功")
     else:
-        print("警告：未找到snap7.dll文件")
+        print("警告：snap7.dll 加载失败，PLC 通信功能不可用")
 
 # 在导入snap7之前调用设置函数
 setup_snap7()
@@ -32,7 +41,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QVBoxLayout
 from Ui_AirCompressorUI import Ui_MainWindow
 from read_UI import DictionaryTableWidget
 from S7_1200 import S7_1200
-from TCPServer import TCPServer
+from TCPServer import VERSION, TCPServer
 
 def get_local_ip():
     try:
@@ -188,6 +197,8 @@ class AirCompressorControl(QMainWindow, Ui_MainWindow):
             state = self.S7_1200.get_state()
             value = {name: state[name] for name in stateList}
             self.server.returnpacket_callback([True, value, 'success'])
+        elif message['opcode'] == 'check':
+            self.server.returnpacket_callback([True, VERSION, 'success'])
         else:
             self.server.returnpacket_callback([False, None, 'No command'])
 
