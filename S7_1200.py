@@ -45,7 +45,14 @@ class S7_1200():
         protocol = self.protocol['读地址']
         for key, value in protocol.items():
             if value['数据类型'] == 'bool':
-                v = get_data[value['数据类型']](self.plc.db_read(int(value["DB区域"]), int(value['地址']), int(value['长度'])), 0, int(value['地址'])*10%10)
+                # 位索引优先从独立的"位"列读取，其次从地址小数部分解析（如 470.1 → bit 1）
+                if value.get('位') is not None:
+                    bit_index = int(value['位'])
+                else:
+                    addr_str = str(value['地址'])
+                    bit_index = int(addr_str.split('.')[1]) if '.' in addr_str else 0
+                byte_addr = int(str(value['地址']).split('.')[0])
+                v = get_data[value['数据类型']](self.plc.db_read(int(value["DB区域"]), byte_addr, int(value['长度'])), 0, bit_index)
             else:
                 v = get_data[value['数据类型']](self.plc.db_read(int(value["DB区域"]), int(value['地址']), int(value['长度'])), 0)
             strValue = None
