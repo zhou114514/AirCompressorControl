@@ -116,7 +116,27 @@ class S7_1200():
 
     def get_state(self):
         return self.state
-    
+
+    def get_state_by_category(self, category: str) -> dict:
+        """返回 读地址 协议中 分类==category 的所有字段当前值"""
+        if not self.protocol or '读地址' not in self.protocol:
+            return {}
+        return {
+            name: self.state.get(name)
+            for name, info in self.protocol['读地址'].items()
+            if info.get('分类') == category
+        }
+
+    def get_categories(self) -> list:
+        """返回 读地址 协议中所有已定义的分类名称（去重，排除 None）"""
+        if not self.protocol or '读地址' not in self.protocol:
+            return []
+        return list({
+            info.get('分类')
+            for info in self.protocol['读地址'].values()
+            if info.get('分类')
+        })
+
     def get_commands(self):
         return self.commands
     

@@ -187,18 +187,24 @@ class AirCompressorControl(QMainWindow, Ui_MainWindow):
         event.accept()
 
     def callback(self, message: dict):
-        if message['opcode'] == 'get_temp':
-            tempList = ["控温点当前设定温度", "控温点温度", "冷板当前设定温度", "冷板控温点温度"]
-            state = self.S7_1200.get_state()
-            value = {name: state[name] for name in tempList}
-            self.server.returnpacket_callback([True, value, 'success'])
-        elif message['opcode'] == 'get_state':
-            stateList = ["一体机上电标志", "温控状态", "温控点类型", "温控类型", "温控模式"]
-            state = self.S7_1200.get_state()
-            value = {name: state[name] for name in stateList}
-            self.server.returnpacket_callback([True, value, 'success'])
-        elif message['opcode'] == 'check':
+        opcode = message.get('opcode', '')
+        if opcode == 'check':
             self.server.returnpacket_callback([True, VERSION, 'success'])
+        elif opcode == 'get_all':
+            self.server.returnpacket_callback([True, self.S7_1200.get_state(), 'success'])
+        elif opcode.startswith('get_'):
+            # 动态路由：get_<分类> → 从协议中取对应分类的所有字段
+            # 例如 get_temp → 分类=="temp"，get_state → 分类=="state"
+            # 在 读地址.xlsx 的"分类"列中新增/修改分类即可自动生效，无需改代码
+            category = opcode[len('get_'):]
+            value = self.S7_1200.get_state_by_category(category)
+            if value:
+                self.server.returnpacket_callback([True, value, 'success'])
+            else:
+                available = self.S7_1200.get_categories()
+                self.server.returnpacket_callback(
+                    [False, None, f'Unknown category "{category}", available: {available}']
+                )
         else:
             self.server.returnpacket_callback([False, None, 'No command'])
 
